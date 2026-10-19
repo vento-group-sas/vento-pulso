@@ -41,45 +41,6 @@ export function CameraQRScanner({ active, onDetected }: CameraQRScannerProps) {
   const [scanning, setScanning] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  useEffect(() => {
-    if (!active) return;
-
-    const Detector = window.BarcodeDetector;
-    if (!Detector) {
-      detectorRef.current = null;
-      setError(
-        "Este navegador no soporta deteccion QR por camara. Usa ingreso manual."
-      );
-      return;
-    }
-
-    try {
-      detectorRef.current = new Detector({ formats: ["qr_code"] });
-      setError(null);
-    } catch {
-      try {
-        detectorRef.current = new Detector();
-        setError(null);
-      } catch {
-        detectorRef.current = null;
-        setError(
-          "No se pudo inicializar el detector QR. Usa ingreso manual."
-        );
-      }
-    }
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) {
-      stopStream();
-      return;
-    }
-
-    void startStream();
-    return () => stopStream();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
-
   const clearTimer = () => {
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
@@ -241,6 +202,39 @@ export function CameraQRScanner({ active, onDetected }: CameraQRScannerProps) {
     }
   };
 
+  useEffect(() => {
+    if (!active) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const Detector = window.BarcodeDetector;
+      if (!Detector) {
+        detectorRef.current = null;
+        setError("Este navegador no soporta deteccion QR por camara. Usa ingreso manual.");
+        return;
+      }
+
+      try {
+        detectorRef.current = new Detector({ formats: ["qr_code"] });
+      } catch {
+        try {
+          detectorRef.current = new Detector();
+        } catch {
+          detectorRef.current = null;
+          setError("No se pudo inicializar el detector QR. Usa ingreso manual.");
+          return;
+        }
+      }
+
+      setError(null);
+      void startStream();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      stopStream();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
   if (!active) return null;
 
   return (
