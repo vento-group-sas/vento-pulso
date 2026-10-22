@@ -221,3 +221,21 @@ test('V2-29 no legacy POS imports are present in V2 domain module', async () => 
   const source = readFileSync(new URL('../../src/modules/pos-v2/domain/offer.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /from ['"][^'"]*(?:\/pos\/|sales-imports)|\.from\(|\.rpc\(|process_order_payment|pulso_post_daily_sales_import|makos/i);
 });
+test('V2-30 dates with impossible calendar days must be rejected', () => {
+  assert.throws(() => draft({ validFrom: '2026-02-31T12:00:00.000Z' }), /valid_from_invalid/);
+  assert.throws(() => draft({ validUntil: '2026-10-21T12:00:00.000Z' }), /validity_window_invalid/);
+});
+test('V2-31 stock and recipe provenance references must be valid', () => {
+  const o = published({ recipeId: 'FOGO_RECIPE_A' });
+  const e = evidence(o);
+  assert.equal(assessOffer(o, input(o, { evidence: { ...e, nexo: { ...e.nexo, reference: {} } } })).sellable, false);
+  assert.equal(assessOffer(o, input(o, { evidence: { ...e, fogo: { ...e.fogo, reference: {} } } })).sellable, false);
+});
+test('V2-32 an offer without a recipe cannot inherit unrelated FOGO evidence', () => {
+  const o = published();
+  const e = evidence(o);
+  const q = quotePublishedOffer(o, input(o, { evidence: {
+    ...e, fogo: { reference: 'UNRELATED_RECIPE' },
+  } }));
+  assert.equal(q.fogoReference, null);
+});
