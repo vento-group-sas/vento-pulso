@@ -8,7 +8,7 @@ export const CI010_INSTANCE_ID = 'SHELL-CI-010::GLOBAL';
 export const CI010_SCHEMA_VERSION = 1;
 export const CONSUMER_REPOSITORY = 'devVentoGroup/vento-pulso';
 export const CONSUMER_NAME = 'vento-pulso';
-export const CONTRACTUAL_TEST_COUNT = 43;
+export const CONTRACTUAL_TEST_COUNT = 44;
 
 export const CANONICAL_PACKAGES = Object.freeze([
   '@vento/contracts',
@@ -236,7 +236,7 @@ export const SOURCE_CONTRACTS = Object.freeze([
     id: 'PULSO-SOURCE-006',
     path: 'src/app/sales-imports/page.tsx',
     tokens: ['LEGACY_POS_IMPORT_DISABLED', 'requireAppAccess', 'returnTo: "/sales-imports"', 'permissionCode: ["pos.main"]'],
-    forbidden_tokens: ['xlsx', 'parseMakosWorkbook', 'saveMakosMapping', 'importDailySales', 'postDailySalesImport', 'pulso_post_daily_sales_import', 'pulso_external_sales_item_mappings', 'pulso_daily_sales_import_batches'],
+    forbidden_tokens: ['xlsx', 'parseMakosWorkbook', 'saveMakosMapping', 'importDailySales', 'postDailySalesImport', 'pulso_post_daily_sales_import', 'pulso_external_sales_item_mappings', 'pulso_daily_sales_import_batches', '.from(', '.rpc(', '.insert(', '.upsert(', '.update(', '.delete('],
   }),
   Object.freeze({
     id: 'PULSO-SOURCE-007',
