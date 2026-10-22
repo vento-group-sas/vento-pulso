@@ -20,8 +20,11 @@ function utc(value, name) {
     fail(name + '_invalid', TypeError);
   }
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !==
-      new Date(value).toISOString()) fail(name + '_invalid', TypeError);
+  const timestampParts = value.slice(0, -1).split('.');
+  const canonical = timestampParts[0] + '.' + (timestampParts[1] ?? '').padEnd(3, '0') + 'Z';
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== canonical) {
+    fail(name + '_invalid', TypeError);
+  }
   return timestamp;
 }
 function channels(value) {
@@ -170,7 +173,8 @@ export function transitionOffer(offer, command) {
 function evidenceCheck(offer, siteId, at, qty, evidence) {
   const stock = evidence?.nexo;
   if (!stock || stock.owner !== 'NEXO' || stock.siteId !== siteId ||
-    stock.productId !== offer.productId || !stock.reference ||
+    stock.productId !== offer.productId || typeof stock.reference !== 'string' ||
+    !/^[\w.:-]{1,96}$/.test(stock.reference) ||
     !Number.isSafeInteger(stock.availableQuantityMilli) ||
     stock.availableQuantityMilli < qty) return { ok: false, reason: 'NEXO_STOCK_UNVERIFIED' };
   if (utc(stock.observedAt, 'nexo_observed') > at ||
@@ -179,14 +183,16 @@ function evidenceCheck(offer, siteId, at, qty, evidence) {
   if (offer.recipeId) {
     const recipe = evidence?.fogo;
     if (!recipe || recipe.owner !== 'FOGO' || recipe.siteId !== siteId ||
-      recipe.recipeId !== offer.recipeId || recipe.ready !== true || !recipe.reference) {
+      recipe.recipeId !== offer.recipeId || recipe.ready !== true ||
+      typeof recipe.reference !== 'string' || !/^[\w.:-]{1,96}$/.test(recipe.reference)) {
       return { ok: false, reason: 'FOGO_RECIPE_UNVERIFIED' };
     }
     if (utc(recipe.observedAt, 'fogo_observed') > at ||
       utc(recipe.expiresAt, 'fogo_expiry') <= at) return { ok: false, reason: 'FOGO_RECIPE_STALE' };
     validUntil = Math.min(validUntil, utc(recipe.expiresAt, 'fogo_expiry'));
   }
-  return { ok: true, validUntil, stockRef: stock.reference, recipeRef: evidence.fogo?.reference ?? null };
+  return { ok: true, validUntil, stockRef: stock.reference,
+    recipeRef: offer.recipeId ? evidence.fogo.reference : null };
 }
 
 export function assessOffer(offer, { siteId, channel, quantityMilli, at, evidence } = {}) {
