@@ -441,3 +441,9 @@ test('REG-11 el importador POS externo no expone carga, mapeo ni publicación de
     /xlsx|parseMakosWorkbook|saveMakosMapping|importDailySales|postDailySalesImport|pulso_post_daily_sales_import|pulso_external_sales_item_mappings|pulso_daily_sales_import_batches/u,
   );
 });
+
+test('REG-12 la ruta de retiro no ejecuta consultas ni mutaciones directas de Supabase', () => {
+  const source = readFileSync(new URL('../../src/app/sales-imports/page.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\.from\(|\.rpc\(|\.insert\(|\.upsert\(|\.update\(|\.delete\(/u);
+  assert.match(source, /LEGACY_POS_IMPORT_DISABLED/u);
+});
