@@ -8,7 +8,7 @@ export const CI010_INSTANCE_ID = 'SHELL-CI-010::GLOBAL';
 export const CI010_SCHEMA_VERSION = 1;
 export const CONSUMER_REPOSITORY = 'devVentoGroup/vento-pulso';
 export const CONSUMER_NAME = 'vento-pulso';
-export const CONTRACTUAL_TEST_COUNT = 42;
+export const CONTRACTUAL_TEST_COUNT = 44;
 
 export const CANONICAL_PACKAGES = Object.freeze([
   '@vento/contracts',
@@ -80,7 +80,7 @@ export const EXPECTED_PAGE_FILES = Object.freeze([
   'src/app/page.tsx',
   'src/app/no-access/page.tsx',
   'src/app/orders/page.tsx',
-  'src/app/sales-imports/page.tsx',
+  'src/app/sales-imports/page.tsx', // Non-mutating historical route, not an active POS capability.
   'src/app/salon/page.tsx',
   'src/app/scanner/page.tsx',
 ]);
@@ -169,7 +169,7 @@ export const SURFACES = Object.freeze([
   }),
   Object.freeze({
     id: 'PULSO-SURFACE-009',
-    name: 'importación de ventas, mapeos, lotes y publicación',
+    name: 'retiro controlado del importador POS externo; legado sin mutaciones',
     required_paths: ['src/app/sales-imports/page.tsx'],
   }),
   Object.freeze({
@@ -177,7 +177,6 @@ export const SURFACES = Object.freeze([
     name: 'atomicidad, idempotencia, concurrencia y recuperación',
     required_paths: [
       'src/app/orders/page.tsx',
-      'src/app/sales-imports/page.tsx',
       'src/modules/pos/api/redemption.api.ts',
       'src/modules/pos/actions/award-loyalty.action.ts',
     ],
@@ -236,7 +235,8 @@ export const SOURCE_CONTRACTS = Object.freeze([
   Object.freeze({
     id: 'PULSO-SOURCE-006',
     path: 'src/app/sales-imports/page.tsx',
-    tokens: ['crypto.createHash("sha256")', 'pulso_external_sales_item_mappings', 'pulso_daily_sales_import_batches', 'pulso_daily_sales_import_rows', 'pulso_post_daily_sales_import'],
+    tokens: ['LEGACY_POS_IMPORT_DISABLED', 'requireAppAccess', 'returnTo: "/sales-imports"', 'permissionCode: ["pos.main"]'],
+    forbidden_tokens: ['xlsx', 'parseMakosWorkbook', 'saveMakosMapping', 'importDailySales', 'postDailySalesImport', 'pulso_post_daily_sales_import', 'pulso_external_sales_item_mappings', 'pulso_daily_sales_import_batches', '.from(', '.rpc(', '.insert(', '.upsert(', '.update(', '.delete('],
   }),
   Object.freeze({
     id: 'PULSO-SOURCE-007',
@@ -442,15 +442,10 @@ export function evaluateSurface(surfaceId, scenario) {
       );
     case 'PULSO-SURFACE-009':
       return Boolean(
-        s.site_id
-        && s.file_valid
-        && s.hash_recorded
-        && s.mapping_scoped
-        && s.batch_attributable
-        && s.rows_attributable
-        && s.warnings_reconciled
-        && s.publish_separate
-        && !s.duplicate_effect,
+        s.legacy_import_route_disabled
+        && s.forbidden_external_actions_absent
+        && s.historical_rows_untouched
+        && s.native_pos_unchanged,
       );
     case 'PULSO-SURFACE-010':
       return Boolean(
@@ -646,16 +641,23 @@ export function inspectSourceContracts(root = process.cwd()) {
         contract_id: contract.id,
         path: contract.path,
         missing_tokens: [...contract.tokens],
+        forbidden_tokens_present: [],
         result: 'BLOCKED',
       };
     }
     const source = fs.readFileSync(absolute, 'utf8');
     const missingTokens = contract.tokens.filter((token) => !source.includes(token));
+    const forbiddenTokensPresent = (contract.forbidden_tokens ?? []).filter(
+      (token) => source.includes(token),
+    );
     return {
       contract_id: contract.id,
       path: contract.path,
       missing_tokens: missingTokens,
-      result: missingTokens.length === 0 ? 'PASS' : 'BLOCKED',
+      forbidden_tokens_present: forbiddenTokensPresent,
+      result: missingTokens.length === 0 && forbiddenTokensPresent.length === 0
+        ? 'PASS'
+        : 'BLOCKED',
     };
   });
 }

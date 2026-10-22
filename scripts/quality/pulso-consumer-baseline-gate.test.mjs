@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -100,15 +101,10 @@ const positiveSurfaceScenarios = Object.freeze({
     transition_valid: true,
   },
   'PULSO-SURFACE-009': {
-    site_id: 'SITE-001',
-    file_valid: true,
-    hash_recorded: true,
-    mapping_scoped: true,
-    batch_attributable: true,
-    rows_attributable: true,
-    warnings_reconciled: true,
-    publish_separate: true,
-    duplicate_effect: false,
+    legacy_import_route_disabled: true,
+    forbidden_external_actions_absent: true,
+    historical_rows_untouched: true,
+    native_pos_unchanged: true,
   },
   'PULSO-SURFACE-010': {
     operation_id: 'OP-001',
@@ -216,15 +212,10 @@ const negativeSurfaceScenarios = Object.freeze({
     transition_valid: false,
   },
   'PULSO-SURFACE-009': {
-    site_id: 'SITE-OTHER',
-    file_valid: false,
-    hash_recorded: false,
-    mapping_scoped: false,
-    batch_attributable: false,
-    rows_attributable: false,
-    warnings_reconciled: false,
-    publish_separate: false,
-    duplicate_effect: true,
+    legacy_import_route_disabled: false,
+    forbidden_external_actions_absent: false,
+    historical_rows_untouched: false,
+    native_pos_unchanged: false,
   },
   'PULSO-SURFACE-010': {
     operation_id: 'OP-001',
@@ -418,7 +409,7 @@ test('REG-08 conjunto multi-package conserva orden canónico y perfiles exactos'
   );
 });
 
-test('REG-09 inventario exacto acepta 6 páginas, 0 dinámicas, 0 handlers, 5 rutas de negocio y 1 deny', () => {
+test('REG-09 inventario físico histórico: 6 páginas, 1 importador sin mutaciones y 1 deny', () => {
   const result = validateRouteInventoryEntries(EXPECTED_PAGE_FILES, EXPECTED_ROUTE_HANDLERS);
   assert.equal(result.result, 'PASS');
   assert.equal(result.actual_page_count, 6);
@@ -440,4 +431,19 @@ test('REG-10 inventario con drift de páginas o handlers queda bloqueado', () =>
   assert.ok(result.missing_pages.includes('src/app/page.tsx'));
   assert.ok(result.unexpected_pages.includes('src/app/extra/page.tsx'));
   assert.ok(result.unexpected_handlers.includes('src/app/api/extra/route.ts'));
+});
+test('REG-11 el importador POS externo no expone carga, mapeo ni publicación de ventas', () => {
+  const source = readFileSync(new URL('../../src/app/sales-imports/page.tsx', import.meta.url), 'utf8');
+  assert.match(source, /LEGACY_POS_IMPORT_DISABLED/u);
+  assert.match(source, /requireAppAccess/u);
+  assert.doesNotMatch(
+    source,
+    /xlsx|parseMakosWorkbook|saveMakosMapping|importDailySales|postDailySalesImport|pulso_post_daily_sales_import|pulso_external_sales_item_mappings|pulso_daily_sales_import_batches/u,
+  );
+});
+
+test('REG-12 la ruta de retiro no ejecuta consultas ni mutaciones directas de Supabase', () => {
+  const source = readFileSync(new URL('../../src/app/sales-imports/page.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\.from\(|\.rpc\(|\.insert\(|\.upsert\(|\.update\(|\.delete\(/u);
+  assert.match(source, /LEGACY_POS_IMPORT_DISABLED/u);
 });
