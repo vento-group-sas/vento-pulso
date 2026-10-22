@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { quoteSale, quoteTenders } from '../../src/modules/pos/lib/native-sale-money.mjs';
 
 import {
   CANONICAL_PACKAGES,
@@ -441,3 +442,16 @@ test('REG-10 inventario con drift de páginas o handlers queda bloqueado', () =>
   assert.ok(result.unexpected_pages.includes('src/app/extra/page.tsx'));
   assert.ok(result.unexpected_handlers.includes('src/app/api/extra/route.ts'));
 });
+test('POS-01 quote with immutable price, tax and tip',()=>{const q=quoteSale([{productId:'x',quantityMilli:2000,unitPriceCop:10000,discountCop:1000,taxBps:1900}],{idempotencyKey:'POS-FIXTURE-000001',tipCop:2000});assert.equal(q.dueCop,24610);assert.equal(q.taxCop,3610);assert.ok(Object.isFrozen(q.lines[0]));});
+
+test('POS-02 deterministic fractional quantities',()=>{const q=quoteSale([{productId:'x',quantityMilli:1250,unitPriceCop:999}],{idempotencyKey:'POS-FIXTURE-000002'});assert.equal(q.dueCop,1249);});
+
+test('POS-03 invalid discount denied',()=>{assert.throws(()=>quoteSale([{productId:'x',quantityMilli:1000,unitPriceCop:99,discountCop:100}],{idempotencyKey:'POS-FIXTURE-000003'}),/discount_exceeds_subtotal/);});
+
+test('POS-04 invalid money and missing idempotency denied',()=>{assert.throws(()=>quoteSale([{productId:'x',quantityMilli:1000,unitPriceCop:1.5}],{idempotencyKey:'POS-FIXTURE-000004'}),/price_invalid/);assert.throws(()=>quoteSale([{productId:'x',quantityMilli:1000,unitPriceCop:100}]),/idempotency_key_required/);});
+
+test('POS-05 exact mixed tender quote with cash change',()=>{const q=quoteSale([{productId:'x',quantityMilli:1000,unitPriceCop:10000}],{idempotencyKey:'POS-FIXTURE-000005'});const s=quoteTenders(q,[{method:'card',amountCop:7000},{method:'cash',amountCop:5000}]);assert.equal(s.changeCop,2000);assert.equal(s.status,'QUOTED_NOT_CAPTURED');});
+
+test('POS-06 incomplete and noncash overpayment denied',()=>{const q=quoteSale([{productId:'x',quantityMilli:1000,unitPriceCop:10000}],{idempotencyKey:'POS-FIXTURE-000006'});assert.throws(()=>quoteTenders(q,[{method:'cash',amountCop:9999}]),/payment_incomplete/);assert.throws(()=>quoteTenders(q,[{method:'card',amountCop:10001}]),/noncash_change_forbidden/);});
+
+test('POS-07 external POS method denied',()=>{const q=quoteSale([{productId:'x',quantityMilli:1000,unitPriceCop:10000}],{idempotencyKey:'POS-FIXTURE-000007'});assert.throws(()=>quoteTenders(q,[{method:'external_pos',amountCop:10000}]),/tender_method_invalid/);});
