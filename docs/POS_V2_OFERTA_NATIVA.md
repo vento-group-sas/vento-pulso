@@ -1,6 +1,6 @@
 # PULSO — POS V2 nativo | oferta gobernada y cotización (fase de ingeniería)
 
-**Estado:** `CODE_CANDIDATE / QA_PENDING`. **POS V2 como sistema:** `NO_IMPLEMENTADO`. **Ambiente de ejecución:** módulos puros y datos sintéticos, **sin rutas, tablas nuevas, ventas, pagos ni despliegue**. No existe autorización para habilitar un POS comercial parcial.
+**Estado del artefacto:** `CODE_CANDIDATE / SOLO_INGENIERIA`. **QA:** consultar resultados del commit exacto en GitHub; las pruebas no acreditan procesos E2E. **POS V2 como sistema:** `NO_IMPLEMENTADO`. **Ambiente de ejecución:** módulos puros y datos sintéticos, **sin rutas, tablas nuevas, ventas, pagos ni despliegue**. No existe autorización para habilitar un POS comercial parcial.
 
 ## 1. Autoridad y fuentes
 
@@ -53,7 +53,7 @@ npm run build
 
 El escenario determinista crea una oferta, la aprueba, la publica, evalúa disponibilidad **sintética** de NEXO/FOGO y emite un presupuesto COP. El JSON deja explícitos `actualInventoryReserved:false`, `moneyCaptured:false`, `saleCommitted:false`, `productionEnabled:false`.
 
-Las pruebas `V2-01..V2-29` cubren flujo positivo y casos negativos: sobreescritura de campos, errores de precio/impuestos, permisos mal asignados, transitions inválidas, motivos, cambios de versión, inventario no comprobado, receta no preparada, sede/canal erróneos, vigencias, cantidades fraccionarias, redondeos, overflow y rechazo del POS externo. `npm test` ejecuta **la suite histórica CI010 sin alterar su denominador**, más esta suite V2 en un carril separado. Los resultados **solo acreditan lógica de dominio en el SHA probado**, nunca E2E empresarial.
+Las pruebas `V2-01..V2-32` cubren flujo positivo y casos negativos: sobreescritura de campos, errores de precio/impuestos, permisos mal asignados, transitions inválidas, motivos, cambios de versión, inventario no comprobado, receta no preparada, sede/canal erróneos, vigencias, cantidades fraccionarias, redondeos, overflow, fechas imposibles, procedencia de referencias y rechazo del POS externo. `npm test` ejecuta **la suite histórica CI010 sin alterar su denominador**, más esta suite V2 en un carril separado. El workflow de validación dedicado `.github/workflows/pulso-pos-v2-qa.yml` ejecuta lint, tipos, build y demostración, sin despliegue. Los resultados **solo acreditan lógica de dominio en el SHA probado**, nunca E2E empresarial.
 
 ## 4. Lo que NO está implementado ni aprobado para operación
 
