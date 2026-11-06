@@ -39,12 +39,13 @@ function extractUserId(raw: string): string | null {
   }
 }
 
-export async function decodeQRCode(qrData: string): Promise<QRDecodeResult> {
+export async function decodeQRCode(qrData: string, siteId?: string | null): Promise<QRDecodeResult> {
   try {
     const clean = qrData.trim();
 
     if (clean.startsWith("VENTO-")) {
-      const validation = await validateRedemption(clean);
+      if (!siteId) return { type: "unknown" };
+      const validation = await validateRedemption(clean, siteId);
       if (validation.success && validation.redemption) {
         return {
           type: "redemption",

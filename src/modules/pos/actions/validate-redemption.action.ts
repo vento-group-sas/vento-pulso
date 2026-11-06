@@ -9,7 +9,7 @@ import { validateRedemption, markRedemptionAsUsed } from "../api/redemption.api"
 import type { RedemptionValidationResult } from "../api/redemption.api";
 
 const APP_ID = "pulso";
-const POS_PERMISSION = "pos.main";
+const REDEMPTION_PERMISSION = "pulso.loyalty.points.redeem";
 
 export interface ProcessRedemptionResult {
   success: boolean;
@@ -23,20 +23,24 @@ export async function processRedemptionAction(
   sharedActorPin?: string,
 ): Promise<ProcessRedemptionResult> {
   try {
-    const validation = await validateRedemption(qrCode);
-    if (!validation.success || !validation.redemption) {
-      return {
-        success: false,
-        error: validation.error || "Código QR inválido",
-      };
+    const code = qrCode.trim();
+    if (!code.startsWith("VENTO-")) {
+      return { success: false, error: "Código de redención inválido" };
     }
 
+    // La lectura del ticket tampoco puede preceder al permiso y sede reales.
     const { supabase, operationalSession } = await requireAppAccess({
       appId: APP_ID,
       returnTo: "/scanner",
-      permissionCode: [POS_PERMISSION],
+      permissionCode: [REDEMPTION_PERMISSION],
     });
+    const siteId = operationalSession.siteId;
+    if (!siteId) {
+      return { success: false, error: "Selecciona una sede autorizada" };
+    }
 
+    // Firmar al trabajador ANTES de consultar datos del titular del QR.
+    // La firma nace sin ticket vinculado y se asocia únicamente tras validar.
     const signatureResult = await requireSharedDeviceActorSignature({
       supabase,
       session: operationalSession,
@@ -44,55 +48,54 @@ export async function processRedemptionAction(
       appId: APP_ID,
       actionCode: "pos.loyalty.validate_redemption",
       targetTable: "pass.loyalty_redemptions",
-      targetId: validation.redemption.id,
+      targetId: null,
       metadata: {
-        redemption_id: validation.redemption.id,
-        reward_id: validation.redemption.reward_id,
-        customer_user_id: validation.redemption.user_id,
-        points_spent: validation.redemption.points_spent,
+        site_id: siteId,
         order_id: orderId ?? null,
       },
     });
-
     if (!signatureResult.ok) {
       return { success: false, error: signatureResult.message };
     }
 
-    const markResult = await markRedemptionAsUsed(validation.redemption.id, orderId);
-    if (!markResult.success) {
-      return {
-        success: false,
-        error: markResult.error || "Error al procesar la redención",
-      };
+    const validation = await validateRedemption(
+      code,
+      siteId,
+      signatureResult.required ? signatureResult.signatureId : null,
+    );
+    if (!validation.success || !validation.redemption) {
+      return { success: false, error: validation.error || "Código QR inválido" };
     }
 
+    // La firma debe estar vinculada al ticket antes del intento de consumo.
+    // El RPC la vuelve a validar de forma autoritativa y transaccional.
     if (signatureResult.required) {
-      const attachResult = await attachSharedDeviceActionSignatureTarget({
+      const linked = await attachSharedDeviceActionSignatureTarget({
         supabase,
         signatureId: signatureResult.signatureId,
         targetTable: "pass.loyalty_redemptions",
         targetId: validation.redemption.id,
-        metadata: { attached_after_validation: true },
+        metadata: { prepared_for_redemption: true, site_id: siteId },
       });
-
-      if (!attachResult.ok) {
-        console.error("shared device redemption signature target attach failed", {
-          redemption_id: validation.redemption.id,
-          signature_id: signatureResult.signatureId,
-          message: attachResult.message,
-        });
+      if (!linked.ok) {
+        return { success: false, error: "No se pudo acreditar la firma del trabajador." };
       }
     }
 
+    const result = await markRedemptionAsUsed(validation.redemption.id, orderId, {
+      siteId,
+      signatureId: signatureResult.required ? signatureResult.signatureId : null,
+    });
+    if (!result.success) {
+      return { success: false, error: result.error || "No se pudo confirmar el canje." };
+    }
+
+    // Mostrar el estado final solo después de la confirmación durable del RPC.
     return {
       success: true,
-      redemption: validation.redemption,
+      redemption: { ...validation.redemption, status: "validated" },
     };
-  } catch (error) {
-    console.error("Error procesando redención:", error);
-    return {
-      success: false,
-      error: "Error inesperado al procesar la redención",
-    };
+  } catch {
+    return { success: false, error: "No se pudo confirmar la redención." };
   }
 }

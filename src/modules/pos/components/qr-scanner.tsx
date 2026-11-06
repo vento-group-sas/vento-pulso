@@ -39,6 +39,7 @@ export function QRScanner({ onScan, selectedClient, onClear, siteId, requiresSha
   const handleClearClient = () => {
     onClear();
     setAmountCop("");
+    setSharedActorPin("");
     resetAlerts();
   };
 
@@ -54,6 +55,7 @@ export function QRScanner({ onScan, selectedClient, onClear, siteId, requiresSha
     setMode(nextMode);
     setQrInput("");
     setAmountCop("");
+    setSharedActorPin("");
     resetAlerts();
 
     if (nextMode !== "identification") {
@@ -65,6 +67,7 @@ export function QRScanner({ onScan, selectedClient, onClear, siteId, requiresSha
     resetAlerts();
 
     if (!rawCode.trim()) {
+      setSharedActorPin("");
       setError("Ingresa un codigo valido");
       return;
     }
@@ -98,6 +101,7 @@ export function QRScanner({ onScan, selectedClient, onClear, siteId, requiresSha
       console.error("Error al procesar QR:", err);
       setError("Error al procesar el codigo");
     } finally {
+      setSharedActorPin("");
       setIsScanning(false);
     }
   };
@@ -162,6 +166,7 @@ export function QRScanner({ onScan, selectedClient, onClear, siteId, requiresSha
       console.error("Error otorgando puntos:", err);
       setError("Error inesperado al otorgar puntos");
     } finally {
+      setSharedActorPin("");
       setIsScanning(false);
     }
   };
