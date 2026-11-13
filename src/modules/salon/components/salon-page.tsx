@@ -315,18 +315,6 @@ export function SalonPage({ siteId, initialSnapshot }: SalonPageProps) {
     };
   }, [siteId, audioEnabled]);
 
-  useEffect(() => {
-    if (!effectiveZoneId && snapshot.zones[0]?.id) {
-      setActiveZoneId(snapshot.zones[0].id);
-    }
-  }, [effectiveZoneId, snapshot.zones]);
-
-  useEffect(() => {
-    if (!selectedTableId && visibleTables[0]?.id) {
-      setSelectedTableId(visibleTables[0].id);
-    }
-  }, [selectedTableId, visibleTables]);
-
   return (
     <div className="space-y-6">
       <section className="ui-panel ui-panel--halo">
